@@ -22,33 +22,26 @@ def calculate_kri(canals_amount_list, service_time_coeffs_matrix, user_arrival_c
     pass
 
 
-def calculate_single_kri(canals_amout, service_time_coeff, user_arrival_coeff):
+def calculate_single_kri(m, lamb, u, roi):
     """
-    :param canals_amout: m_i
-    :param service_time_coeff: u_ir
-    :param user_arrival_coeff: lambda_ir
-    :return: k_ir value
-    ro_ir = lambda_ir / ( m_i * u_ir )
-    formula:
-    k = m*ro+(ro/(1-ro))*(((m*ro)^m)/(m!*(1-ro)))*1/(sum ki = 0 to m-1:((m*ro)^ki)/(ki!)+(((m*ro)^m)/(m!))*(1/(1-ro)))
-    K = m_ro + stat1*stat2*stat3
+    :param m: channels amount in system
+    :param lamb: service coefficient
+    :param u: arrival coefficient
+    :param roi: dunno, jest w pracy prowadzacej
+    :return: average requests amount in system
     """
-    m = canals_amout
-    ro = user_arrival_coeff/(canals_amout * service_time_coeff)
-    m_ro = canals_amout * ro
 
-    m_fact = math.factorial(m)
-    stat1 = ro/(1 - ro)
-    stat2 = m_ro**m / (m_fact * (1 - ro))
-    stat3_static_part = (m_ro**m/m_fact)*(1/1-ro)
+    ro = lamb / (m * u)
+    mroi = m * roi
+    fact = 1 / math.factorial(m)
+    inv = 1 / (1 - roi)
 
-    stat3_denominator = 0
-    for k in range(m-1):
-        stat3_denominator += m_ro**k / math.factorial(k) + stat3_static_part
-    stat3 = 1 / stat3_denominator
+    pow_mroi = mroi**m
 
-    return m_ro + stat1 * stat2 * stat3
+    den1 = sum([mroi**k/math.factorial(k) for k in range(m-1)])
+    den2 = pow_mroi * fact * inv
 
+    return m * ro + inv**2 * ro * pow_mroi * inv * 1 / (den1 + den2)
 
 
 def main():
@@ -60,7 +53,16 @@ def main():
                                            [2., 3.],
                                            [2., 1.]])
 
-    testval = calculate_single_kri(canals_amount_list[0], service_time_coeffs_matrix[0][0], user_arrival_coeffs_matrix[0][0])
+    lamb0 = user_arrival_coeffs_matrix[0]
+    u0 = service_time_coeffs_matrix[0]
+    m0 = canals_amount_list[0]
+
+    roi_0 = sum([lamb0[k]/(m0 * u0) for k in range(len(service_time_coeffs_matrix[0]))])
+
+    testval = calculate_single_kri(canals_amount_list[0],
+                                   service_time_coeffs_matrix[0][0],
+                                   user_arrival_coeffs_matrix[0][0],
+                                   roi_0)
     print(testval)
 
     retval = get_bcmp_parameters(canals_amount_list, service_time_coeffs_matrix, user_arrival_coeffs_matrix)
