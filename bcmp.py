@@ -57,7 +57,9 @@ def main():
     u0 = service_time_coeffs_matrix[0]
     m0 = canals_amount_list[0]
 
-    roi_0 = sum([lamb0[k]/(m0 * u0) for k in range(len(service_time_coeffs_matrix[0]))])
+    vals = [lamb0[k]/(m0 * u0[k]) for k in range(len(lamb0))]
+
+    roi_0 = sum(vals)
 
     testval = calculate_single_kri(canals_amount_list[0],
                                    service_time_coeffs_matrix[0][0],
