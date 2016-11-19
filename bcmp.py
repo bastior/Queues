@@ -33,8 +33,8 @@ def calculate_single_kri(m, lamb, u, roi):
 
     ro = lamb / (m * u)
     mroi = m * roi
-    fact = 1 / math.factorial(m)
-    inv = 1 / (1 - roi)
+    fact = 1. / math.factorial(m)
+    inv = 1. / (1. - roi)
 
     pow_mroi = mroi**m
 
