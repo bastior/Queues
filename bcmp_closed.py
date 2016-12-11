@@ -67,6 +67,8 @@ class BcmpNetworkClosed(object):
         # store servers amount per node (needed for ro recalculations)
         # im too lazy to clean that up
         self.m = list(map(lambda x: x[1], node_info))
+        # this should be split, laziness emerges
+        self.types = list(map(lambda x: x[0], node_info))
         self.epsilon = epsilon
         # raw probabilites have to be converted
         self.e = self._calculate_visit_ratios(p)
@@ -92,9 +94,9 @@ class BcmpNetworkClosed(object):
         :return:
         """
         ro_matrix = [[(self._lambdas[r] * self.e[i, r]) / (self.m[i] * self.mi_matrix[i, r])
-                                for r in range(R)] for i in range(N)]
-        ro_matrix = np.matrix(ro_matrix)
-        self.ro = ro_matrix.sum(1)
+                      for r in range(R)] for i in range(N)]
+        self.ro_matrix = np.matrix(ro_matrix)
+        self.ro = self.ro_matrix.sum(1)
 
     def _get_call_chains(self, node_info):
         """
@@ -133,11 +135,11 @@ class BcmpNetworkClosed(object):
         def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
             mul1 = (sum1 / m) / (1 - (self.k_sum-m-1)*self.ro[i]/self.k_sum-m)
-            mul2 = ((m * self.ro[i])**m) / (math.factorial(m) * (1 - self.ro[i]))
-            mul31 = sum([((m*self.ro[i])**k)/math.factorial(k) for k in range(m - 1)])
-            mul32 = ((m * self.ro[i])**m) / math.factorial(m) * (1-1/(1-self.ro[i]))
+            # mul2 = ((m * self.ro[i])**m) / (math.factorial(m) * (1 - self.ro[i]))
+            # mul31 = sum([((m*self.ro[i])**k)/math.factorial(k) for k in range(m - 1)])
+            # mul32 = ((m * self.ro[i])**m) / math.factorial(m) * (1-1/(1-self.ro[i]))
 
-            return (sum1 + mul1 * mul2 / (mul31 + mul32)).item()
+            return (sum1 + mul1 * self.calculate_pmi(i)).item()
 
         def type3():
             return self.e[i, r] / self.mi_matrix[i, r]
@@ -151,7 +153,14 @@ class BcmpNetworkClosed(object):
 
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % node_info)
 
-    def iterate(self):
+    def calculate_pmi(self, i):
+        m = self.m[i]
+        mul1 = ((m * self.ro[i]) ** m) / (math.factorial(m) * (1 - self.ro[i]))
+        den1 = sum([((m * self.ro[i]) ** k) / math.factorial(k) for k in range(m - 1)])
+        den2 = ((m * self.ro[i]) ** m) / math.factorial(m) * (1 - 1 / (1 - self.ro[i]))
+        return mul1 / (den1 + den2)
+
+    def _iterate(self):
         error = self.epsilon + 1
         while error > self.epsilon:
             old_lambdas = list(self._lambdas)
@@ -162,9 +171,22 @@ class BcmpNetworkClosed(object):
             error = math.sqrt(err)
             self.calculate_ro()
 
-    def get_measures(self):
-        pass
+    def get_kri(self, i, r):
+        m = self.m[i]
+        type_ = self.types[i]
+        if type_ in frozenset([1, 2, 4]) and m == 1:
+            return (self.ro_matrix[i, r] / (1 - self.ro[i] * (self.k_sum - 1) / self.k_sum)).item()
+        elif type_ == 1 and m > 1:
+            ro_ir = self.ro_matrix[i, r]
+            return (m * ro_ir + self.calculate_pmi(i) * ro_ir / (1 - ro_ir * (self.k_sum - m - 1) / (self.k_sum - m))).item()
+        elif type_ == 3:
+            return self._lambdas[r] * self.e[i, r]
+        raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
 
+    def get_measures(self):
+        self._iterate()
+        mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
+        return mean_k_matrix
 
 if __name__ == '__main__':
     # Classes amount
@@ -194,22 +216,22 @@ if __name__ == '__main__':
 
     # generate network parameters
     # node types
-    types = [1,1,3]
+    types = [1, 1, 3]
     # servers amount in respect to node type
-    m = [2,1,1]
+    m = [3, 2, 1]
     # amount of request by class
-    K = [3,3,3]
+    K = [3, 3, 3]
 
-    # Raise solver
+    # initiate solver
     solver = BcmpNetworkClosed(
         R=R,
         N=N,
         k=K,
         mi_matrix=mi,
         p=classes,
-        node_info=zip(types,m),
+        node_info=zip(types, m),
         epsilon=0.0001
     )
-
-    solver.iterate()
-
+    from pprint import pprint
+    res = solver.get_measures()
+    pprint(res)
