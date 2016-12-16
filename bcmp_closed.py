@@ -83,9 +83,10 @@ class BcmpNetworkClosed(object):
     def _calculate_visit_ratios(p):
         visit_ratios = []
         for cl in p:
-            A = cl.T - np.diagflat([1, 1, 1])
-            visit_ratios.append(null(A))
-        return -1 * np.hstack(visit_ratios)
+            A = cl.T - np.diagflat([0, 1, 1])
+            ret = np.linalg.solve(A, [1, 0, 0])
+            visit_ratios.append(ret)
+        return np.hstack(visit_ratios)
 
     def calculate_ro(self):
         """
@@ -232,6 +233,7 @@ if __name__ == '__main__':
         node_info=zip(types, m),
         epsilon=0.0001
     )
+
     from pprint import pprint
     res = solver.get_measures()
     pprint(res)
