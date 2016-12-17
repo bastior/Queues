@@ -11,24 +11,8 @@ Solving closed BCMP network parameters
         load independency,
         same service rate for all classes in node
 
+Tested only for python 2.7
 """
-
-
-def null(A, eps=1e-15):
-    u, s, vh = np.linalg.svd(A)
-    null_mask = (s <= eps)
-    null_space = np.compress(null_mask, vh, axis=0)
-    return np.transpose(null_space)
-
-
-def nullspace(A, atol=1e-13, rtol=0):
-    A = np.atleast_2d(A)
-    u, s, vh = np.linalg.svd(A)
-    tol = max(atol, rtol * s[0])
-    nnz = (s >= tol).sum()
-    ns = vh[nnz:].conj().T
-    return ns
-
 
 def get_ro_components(lambdas, visit_ratios, m, mi):
     ro_matrix = [[(lambdas[r] * visit_ratios[i, r]) / (m[i] * mi[i, r])
@@ -38,14 +22,6 @@ def get_ro_components(lambdas, visit_ratios, m, mi):
     # print(ro_matrix)
     # print(ro_list)
     return ro_matrix, ro_list
-
-
-class Node(object):
-    def __init__(self, type_, m):
-        if type_ != 1 and m != 1:
-            raise RuntimeError('Type %s can have only 1 server' % type_)
-        self.type = type_
-        self.m = m
 
 
 class BcmpNetworkClosed(object):
