@@ -56,7 +56,8 @@ class BcmpNetworkClosed(object):
         # determine function types and store closures for each
         self._get_call_chains(node_info)
         # calculate ro values pre first iteration
-        self.calculate_ro()
+        self._recalculate_lambda_ir()
+        self._calculate_ro()
 
     @staticmethod
     def _calculate_visit_ratios(p):
@@ -67,13 +68,17 @@ class BcmpNetworkClosed(object):
             visit_ratios.append(ret)
         return np.vstack(visit_ratios).T
 
-    def calculate_ro(self):
+    def _recalculate_lambda_ir(self):
+        lambda_matrix = [[(self._lambdas[r] * self.e[i, r]) for r in range(R)] for i in range(N)]
+        self.lambda_matrix = np.matrix(lambda_matrix)
+
+    def _calculate_ro(self):
         """
             Ro calculation without explicit lambda matrix, based on
             lambda_ir = e_ir * lambda_r
         :return:
         """
-        ro_matrix = [[(self._lambdas[r] * self.e[i, r]) / (self.m[i] * self.mi_matrix[i, r])
+        ro_matrix = [[self.lambda_matrix[i, r] / (self.m[i] * self.mi_matrix[i, r])
                       for r in range(R)] for i in range(N)]
         self.ro_matrix = np.matrix(ro_matrix)
         self.ro = self.ro_matrix.sum(1)
@@ -115,10 +120,6 @@ class BcmpNetworkClosed(object):
         def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
             mul1 = (self.e[i,r] / (m * self.mi_matrix[i,r])) / (1 - self.ro[i]*((self.k_sum-m-1)/(self.k_sum-m)))
-            # mul2 = ((m * self.ro[i])**m) / (math.factorial(m) * (1 - self.ro[i]))
-            # mul31 = sum([((m*self.ro[i])**k)/math.factorial(k) for k in range(m - 1)])
-            # mul32 = ((m * self.ro[i])**m) / math.factorial(m) * (1-1/(1-self.ro[i]))
-
             return (sum1 + mul1 * self.calculate_pmi(i)).item()
 
         def type3():
@@ -142,7 +143,7 @@ class BcmpNetworkClosed(object):
 
     def _iterate(self):
         error = self.epsilon + 1
-        while error > self.epsilon and not self.validate_lambdas():
+        while error > self.epsilon and not self._validate_lambdas():
             old_lambdas = list(self._lambdas)
             for r in range(R):
                 vals = map(lambda x: x(), self.call_chain_matrix[r])
@@ -152,11 +153,8 @@ class BcmpNetworkClosed(object):
 
             err = sum([(self._lambdas[r] - old_lambdas[r])**2 for r in range(R)])
             error = math.sqrt(err)
-            # print('old lambdas    ', old_lambdas)
-            # print('current lambdas', self._lambdas)
-            # print('error value    ', error)
-            # print
-            self.calculate_ro()
+            self._recalculate_lambda_ir()
+            self._calculate_ro()
 
     def get_kri(self, i, r):
         m = self.m[i]
@@ -170,27 +168,18 @@ class BcmpNetworkClosed(object):
             return self._lambdas[r] * self.e[i, r] / self.mi_matrix[i, r]
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
 
-    def validate_lambdas(self):
+    def _validate_lambdas(self):
         flag = True
         for i in range(self.N):
             for r in range(self.R):
-                l_ir = self._lambdas[r] * self.e[i, r]
                 rhs = self.m[i] * self.mi_matrix[i, r]
-
-                if l_ir > rhs:
-                    print '{'
-                    print '\tpozycja', i, r
-                    print '\twyliczone lambdar, eir', self._lambdas[r], self.e[i, r]
-                    print '\tguard values mi, miir', self.m[i], self.mi_matrix[i, r]
-                    print '\twartosc', l_ir, rhs
-                    print '}'
+                if self.lambda_matrix[i, r] > rhs:
                     flag &= False
 
         return flag
 
     def get_measures(self):
         self._iterate()
-        print(self.validate_lambdas())
         mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
         mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in range(self.N)]
         mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in range(self.N)]
@@ -210,9 +199,9 @@ if __name__ == '__main__':
     # mi = np.matrix([[8., 24.],
     #                 [12., 32.],
     #                 [16., 36.]])
-    mi = np.matrix([[8., 12.],
-                    [8., 12.],
-                    [8., 12.]])
+    mi = np.matrix([[0.01, 0.04],
+                    [0.02, 0.05],
+                    [0.03, 0.06]])
 
     # single class transition probability matrices
     # matrix[node1,node2] denotes transition probability
@@ -233,15 +222,26 @@ if __name__ == '__main__':
     # node types
     types = [1, 1, 1]
     # servers amount in respect to node type
-    m = [3, 2, 1]
+    m = [2, 1, 1]
     # amount of request by class
-    K = [4, 3]
+    K1 = [1, 2]
+    K2 = [100000000, 200000000]
 
     # initiate solver
-    solver = BcmpNetworkClosed(
+    solver1 = BcmpNetworkClosed(
         R=R,
         N=N,
-        k=K,
+        k=K1,
+        mi_matrix=mi,
+        p=classes,
+        node_info=zip(types, m),
+        epsilon=0.0001
+    )
+
+    solver2 = BcmpNetworkClosed(
+        R=R,
+        N=N,
+        k=K2,
         mi_matrix=mi,
         p=classes,
         node_info=zip(types, m),
@@ -249,5 +249,10 @@ if __name__ == '__main__':
     )
 
     from pprint import pprint
-    res = solver.get_measures()
-    pprint(res)
+    res1 = solver1.get_measures()
+    res2 = solver2.get_measures()
+
+    W1 = np.matrix(res1['mean_w_matrix'])
+    W2 = np.matrix(res2['mean_w_matrix'])
+    pprint(W2 - W1)
+    # pprint(res)
