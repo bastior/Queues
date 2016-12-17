@@ -14,6 +14,7 @@ Solving closed BCMP network parameters
 Tested only for python 2.7
 """
 
+
 def get_ro_components(lambdas, visit_ratios, m, mi):
     ro_matrix = [[(lambdas[r] * visit_ratios[i, r]) / (m[i] * mi[i, r])
                   for r in range(R)] for i in range(N)]
@@ -113,7 +114,7 @@ class BcmpNetworkClosed(object):
 
         def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
-            mul1 = (self.e[i,r] / (m * self.mi_matrix[i,r])) / (1 - ((self.k_sum-m-1)*self.ro[i])/self.k_sum-m)
+            mul1 = (self.e[i,r] / (m * self.mi_matrix[i,r])) / (1 - self.ro[i]*((self.k_sum-m-1)/(self.k_sum-m)))
             # mul2 = ((m * self.ro[i])**m) / (math.factorial(m) * (1 - self.ro[i]))
             # mul31 = sum([((m*self.ro[i])**k)/math.factorial(k) for k in range(m - 1)])
             # mul32 = ((m * self.ro[i])**m) / math.factorial(m) * (1-1/(1-self.ro[i]))
@@ -141,7 +142,7 @@ class BcmpNetworkClosed(object):
 
     def _iterate(self):
         error = self.epsilon + 1
-        while error > self.epsilon:
+        while error > self.epsilon and not self.validate_lambdas():
             old_lambdas = list(self._lambdas)
             for r in range(R):
                 vals = map(lambda x: x(), self.call_chain_matrix[r])
@@ -169,8 +170,27 @@ class BcmpNetworkClosed(object):
             return self._lambdas[r] * self.e[i, r] / self.mi_matrix[i, r]
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
 
+    def validate_lambdas(self):
+        flag = True
+        for i in range(self.N):
+            for r in range(self.R):
+                l_ir = self._lambdas[r] * self.e[i, r]
+                rhs = self.m[i] * self.mi_matrix[i, r]
+
+                if l_ir > rhs:
+                    print '{'
+                    print '\tpozycja', i, r
+                    print '\twyliczone lambdar, eir', self._lambdas[r], self.e[i, r]
+                    print '\tguard values mi, miir', self.m[i], self.mi_matrix[i, r]
+                    print '\twartosc', l_ir, rhs
+                    print '}'
+                    flag &= False
+
+        return flag
+
     def get_measures(self):
         self._iterate()
+        print(self.validate_lambdas())
         mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
         mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in range(self.N)]
         mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in range(self.N)]
@@ -187,9 +207,12 @@ if __name__ == '__main__':
     N = 3
 
     # service times
-    mi = np.matrix([[8., 24],
-                    [12, 32],
-                    [16, 36]])
+    # mi = np.matrix([[8., 24.],
+    #                 [12., 32.],
+    #                 [16., 36.]])
+    mi = np.matrix([[8., 12.],
+                    [8., 12.],
+                    [8., 12.]])
 
     # single class transition probability matrices
     # matrix[node1,node2] denotes transition probability
@@ -208,11 +231,11 @@ if __name__ == '__main__':
 
     # generate network parameters
     # node types
-    types = [1, 2, 3]
+    types = [1, 1, 1]
     # servers amount in respect to node type
-    m = [3, 1, 1]
+    m = [3, 2, 1]
     # amount of request by class
-    K = [3, 3]
+    K = [4, 3]
 
     # initiate solver
     solver = BcmpNetworkClosed(
