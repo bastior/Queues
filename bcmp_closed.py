@@ -17,7 +17,7 @@ Tested only for python 2.7
 
 def get_ro_components(lambdas, visit_ratios, m, mi):
     ro_matrix = [[(lambdas[r] * visit_ratios[i, r]) / (m[i] * mi[i, r])
-                  for r in range(R)] for i in range(N)]
+                  for r in range(self.R)] for i in range(self.N)]
     ro_matrix = np.matrix(ro_matrix)
     ro_list = ro_matrix.sum(1)
     # print(ro_matrix)
@@ -52,7 +52,7 @@ class BcmpNetworkClosed(object):
         # raw probabilites have to be converted
         self.e = self._calculate_visit_ratios(p)
         # Initate lambdas with zeros
-        self._lambdas = [0.00001 for _ in range(R)]
+        self._lambdas = [0.00001 for _ in range(self.R)]
         # determine function types and store closures for each
         self._get_call_chains(node_info)
         # calculate ro values pre first iteration
@@ -69,7 +69,7 @@ class BcmpNetworkClosed(object):
         return np.vstack(visit_ratios).T
 
     def _recalculate_lambda_ir(self):
-        lambda_matrix = [[(self._lambdas[r] * self.e[i, r]) for r in range(R)] for i in range(N)]
+        lambda_matrix = [[(self._lambdas[r] * self.e[i, r]) for r in range(self.R)] for i in range(self.N)]
         self.lambda_matrix = np.matrix(lambda_matrix)
 
     def _calculate_ro(self):
@@ -79,7 +79,7 @@ class BcmpNetworkClosed(object):
         :return:
         """
         ro_matrix = [[self.lambda_matrix[i, r] / (self.m[i] * self.mi_matrix[i, r])
-                      for r in range(R)] for i in range(N)]
+                      for r in range(self.R)] for i in range(self.N)]
         self.ro_matrix = np.matrix(ro_matrix)
         self.ro = self.ro_matrix.sum(1)
 
@@ -96,7 +96,7 @@ class BcmpNetworkClosed(object):
         if any(map(lambda (type, m): type !=1 and m != 1, node_info)):
             raise ValueError('Only type 1 can have more than one server')
 
-        self.call_chain_matrix = [[] for _ in range(R)]
+        self.call_chain_matrix = [[] for _ in range(self.R)]
         for r in range(self.R):
             for i in range(self.N):
                 self.call_chain_matrix[r].append(
@@ -145,13 +145,13 @@ class BcmpNetworkClosed(object):
         error = self.epsilon + 1
         while error > self.epsilon and not self._validate_lambdas():
             old_lambdas = list(self._lambdas)
-            for r in range(R):
+            for r in range(self.R):
                 vals = map(lambda x: x(), self.call_chain_matrix[r])
                 s = sum(vals)
                 new_lambda = self.k[r] / s
                 self._lambdas[r] = new_lambda
 
-            err = sum([(self._lambdas[r] - old_lambdas[r])**2 for r in range(R)])
+            err = sum([(self._lambdas[r] - old_lambdas[r])**2 for r in range(self.R)])
             error = math.sqrt(err)
             self._recalculate_lambda_ir()
             self._calculate_ro()
