@@ -61,6 +61,8 @@ class BcmpNetworkClosed(object):
         """
         self.R = R
         self.N = N
+        if len(k) != R:
+            raise ValueError("Amount of request types greater than amount of classes (%s, %s)" % (len(k), R))
         self.k = k
         self.k_sum = sum(k)
         self.mi_matrix = mi_matrix
@@ -86,7 +88,7 @@ class BcmpNetworkClosed(object):
             A = cl.T - np.diagflat([0, 1, 1])
             ret = np.linalg.solve(A, [1, 0, 0])
             visit_ratios.append(ret)
-        return np.hstack(visit_ratios)
+        return np.vstack(visit_ratios).T
 
     def calculate_ro(self):
         """
@@ -135,7 +137,7 @@ class BcmpNetworkClosed(object):
 
         def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
-            mul1 = (sum1 / m) / (1 - (self.k_sum-m-1)*self.ro[i]/self.k_sum-m)
+            mul1 = (self.e[i,r] / (m * self.mi_matrix[i,r])) / (1 - ((self.k_sum-m-1)*self.ro[i])/self.k_sum-m)
             # mul2 = ((m * self.ro[i])**m) / (math.factorial(m) * (1 - self.ro[i]))
             # mul31 = sum([((m*self.ro[i])**k)/math.factorial(k) for k in range(m - 1)])
             # mul32 = ((m * self.ro[i])**m) / math.factorial(m) * (1-1/(1-self.ro[i]))
@@ -158,7 +160,7 @@ class BcmpNetworkClosed(object):
         m = self.m[i]
         mul1 = ((m * self.ro[i]) ** m) / (math.factorial(m) * (1 - self.ro[i]))
         den1 = sum([((m * self.ro[i]) ** k) / math.factorial(k) for k in range(m - 1)])
-        den2 = ((m * self.ro[i]) ** m) / math.factorial(m) * (1 - 1 / (1 - self.ro[i]))
+        den2 = (((m * self.ro[i]) ** m) / math.factorial(m)) * (1 / (1 - self.ro[i]))
         return mul1 / (den1 + den2)
 
     def _iterate(self):
@@ -166,10 +168,17 @@ class BcmpNetworkClosed(object):
         while error > self.epsilon:
             old_lambdas = list(self._lambdas)
             for r in range(R):
-                self._lambdas[r] = self.k[r] / sum(map(lambda x: x(), self.call_chain_matrix[r]))
+                vals = map(lambda x: x(), self.call_chain_matrix[r])
+                s = sum(vals)
+                new_lambda = self.k[r] / s
+                self._lambdas[r] = new_lambda
 
             err = sum([(self._lambdas[r] - old_lambdas[r])**2 for r in range(R)])
             error = math.sqrt(err)
+            # print('old lambdas    ', old_lambdas)
+            # print('current lambdas', self._lambdas)
+            # print('error value    ', error)
+            # print
             self.calculate_ro()
 
     def get_kri(self, i, r):
@@ -179,15 +188,21 @@ class BcmpNetworkClosed(object):
             return (self.ro_matrix[i, r] / (1 - self.ro[i] * (self.k_sum - 1) / self.k_sum)).item()
         elif type_ == 1 and m > 1:
             ro_ir = self.ro_matrix[i, r]
-            return (m * ro_ir + self.calculate_pmi(i) * ro_ir / (1 - ro_ir * (self.k_sum - m - 1) / (self.k_sum - m))).item()
+            return (m * ro_ir + self.calculate_pmi(i) * ro_ir / (1 - self.ro[i] * (self.k_sum - m - 1) / (self.k_sum - m))).item()
         elif type_ == 3:
-            return self._lambdas[r] * self.e[i, r]
+            return self._lambdas[r] * self.e[i, r] / self.mi_matrix[i, r]
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
 
     def get_measures(self):
         self._iterate()
         mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
-        return mean_k_matrix
+        mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in range(self.N)]
+        mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in range(self.N)]
+        return {
+            'mean_k_matrix': mean_k_matrix,
+            'mean_t_matrix': mean_t_matrix,
+            'mean_w_matrix': mean_w_matrix
+        }
 
 if __name__ == '__main__':
     # Classes amount
@@ -217,11 +232,11 @@ if __name__ == '__main__':
 
     # generate network parameters
     # node types
-    types = [1, 1, 3]
+    types = [1, 2, 3]
     # servers amount in respect to node type
-    m = [3, 2, 1]
+    m = [3, 1, 1]
     # amount of request by class
-    K = [3, 3, 3]
+    K = [3, 3]
 
     # initiate solver
     solver = BcmpNetworkClosed(
