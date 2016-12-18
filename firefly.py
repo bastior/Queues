@@ -9,6 +9,64 @@ class FireflyAlgorythm(object):
     def __init__(object):
         pass
 
+    #solution.FFA(1, 1, 2, 2, 5, 5)
+    def FFA(self, objectiveFunction, lowerBound, upperBound, dim, n, maxGeneration):
+        """
+        objectiveFunction - function that calcs value for each firefly (vector) of solution
+        lowerBound - LB of all values within firefly
+        upperBound - guess what....
+        dim - dimention of firefly
+        n - number of fireflies in algorythm
+        maxGeneration - number of iterations that should be taken
+        """
+
+
+        alpha = 0.5
+        betaMin = 0.2
+        gamma = 1
+
+        # value function for all fireflies. Bring to infinity, becouse why not
+        zn = np.ones(n)
+        zn = [1, 0]
+        #zn.fill(float("inf"))
+
+        #generate random fireflies between UB and LB
+        ns = np.random.uniform(0,1,(n,dim)) * (upperBound - lowerBound) + lowerBound
+
+        light = np.ones(n)
+        light.fill(float("inf"))
+
+        cov = []
+
+
+        #main loop
+
+        for k in range(0,maxGeneration):
+
+            for i in range(0,n):
+                #LIZONCZYK TUTAJ WRZUCIC zn[i] = objectiveFunction(ns) gdzie ns jest wektorem
+                light[i] = zn[i]
+
+
+            light = np.sort(zn)
+            index = np.argsort(zn)
+            ns = ns[index,:]
+
+            nso = ns
+            lightO = light
+            nbest = ns[0,:]
+            lightBest = light[0]
+
+            fbest = lightBest
+
+            scale = np.ones(dim) * abs(upperBound - lowerBound)
+
+            for i in range (0,n):
+                #attractivenes parameter = exp(-gamma * r)
+                for j in range(0,n):
+                    r = np.sqrt(np.sum((ns[i,:]-ns[j,:])**2))
+
+
     def calcValue(m):
         """
         Wymyslec i policzyc funkcje celu na podstawie M i srednich czasow oczekiwania
@@ -40,8 +98,6 @@ class FireflyAlgorythm(object):
         )
         vals = solver.get_measures()
 
-        #print vals
-        print [vals['mean_w_matrix'][i] for i in indices]
         return vals['mean_w_matrix']
 
     def bcmpParams(self):
@@ -86,5 +142,6 @@ if __name__ == "__main__":
     m = [2,1]
     solution = FireflyAlgorythm()
 
+    solution.FFA(1, 1, 2, 2, 2, 2)
     solution.bcmpIf(m)
     pass
