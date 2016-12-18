@@ -9,7 +9,6 @@ class FireflyAlgorythm(object):
     def __init__(object):
         pass
 
-    #solution.FFA(1, 1, 2, 2, 5, 5)
     def FFA(self, objectiveFunction, lowerBound, upperBound, dim, n, maxGeneration):
         """
         objectiveFunction - function that calcs value for each firefly (vector) of solution
@@ -27,8 +26,7 @@ class FireflyAlgorythm(object):
 
         # value function for all fireflies. Bring to infinity, becouse why not
         zn = np.ones(n)
-        zn = [1, 0]
-        #zn.fill(float("inf"))
+        zn.fill(float("inf"))
 
         #generate random fireflies between UB and LB
         ns = np.random.uniform(0,1,(n,dim)) * (upperBound - lowerBound) + lowerBound
@@ -36,11 +34,7 @@ class FireflyAlgorythm(object):
         light = np.ones(n)
         light.fill(float("inf"))
 
-        cov = []
-
-
         #main loop
-
         for k in range(0,maxGeneration):
 
             for i in range(0,n):
@@ -66,6 +60,23 @@ class FireflyAlgorythm(object):
                 for j in range(0,n):
                     r = np.sqrt(np.sum((ns[i,:]-ns[j,:])**2))
 
+                    if light[i] > lightO[j]:
+                        beta0=1
+                        beta=(beta0-betaMin)*math.exp(-gamma*r**2)+betaMin
+                        tmpf=alpha*(np.random.rand(dim)-0.5)*scale
+                        ns[i,:]=ns[i,:]*(1-beta)+nso[j,:]*beta+tmpf
+
+
+            iterationNumber = k
+            bestQuality = fbest
+
+            print "Iteration number:"
+            print k
+            print "Best value function:"
+            print fbest
+            print "for vector:"
+            print nbest
+            
 
     def calcValue(m):
         """
@@ -139,9 +150,9 @@ class FireflyAlgorythm(object):
         return R, N, K, mi, classes, types, epsilon
 
 if __name__ == "__main__":
-    m = [2,1]
+    #m = [2,1]
     solution = FireflyAlgorythm()
 
-    solution.FFA(1, 1, 2, 2, 2, 2)
-    solution.bcmpIf(m)
+    #solution.FFA(1, 1, 2, 2, 2, 2)
+    #solution.bcmpIf(m)
     pass
