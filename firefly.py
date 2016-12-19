@@ -169,5 +169,6 @@ if __name__ == "__main__":
     solution = FireflyAlgorythm()
 
     #solution.FFA(2, 10, 3, 15, 10)
-    print solution.bcmpIf(m)
+    from pprint import pprint
+    pprint(solution.bcmpIf(m))
     pass
