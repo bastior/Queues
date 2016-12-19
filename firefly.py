@@ -138,9 +138,9 @@ class FireflyAlgorythm(object):
         N = 3
       
         # service times
-        mi = np.matrix([[0.01, 0.04],
-                        [0.02, 0.05],
-                        [0.03, 0.06]])
+        mi = np.matrix([[1, 4],
+                        [2, 5],
+                        [3, 0.99]])
         # single class transition probability matrices
         # matrix[node1,node2] denotes transition probability
         # from node1 to node2 for given class
@@ -165,9 +165,9 @@ class FireflyAlgorythm(object):
         return R, N, K, mi, classes, types, epsilon
 
 if __name__ == "__main__":
-    m = [6,4,4]
+    m = [7,2,3]
     solution = FireflyAlgorythm()
 
-    solution.FFA(2, 10, 3, 15, 10)
-    #print solution.bcmpIf(m)
+    #solution.FFA(2, 10, 3, 15, 10)
+    print solution.bcmpIf(m)
     pass
