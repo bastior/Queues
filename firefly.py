@@ -9,9 +9,8 @@ class FireflyAlgorythm(object):
     def __init__(object):
         pass
 
-    def FFA(self, objectiveFunction, lowerBound, upperBound, dim, n, maxGeneration):
+    def FFA(self, lowerBound, upperBound, dim, n, maxGeneration):
         """
-        objectiveFunction - function that calcs value for each firefly (vector) of solution
         lowerBound - LB of all values within firefly
         upperBound - guess what....
         dim - dimention of firefly
@@ -30,6 +29,7 @@ class FireflyAlgorythm(object):
 
         #generate random fireflies between UB and LB
         ns = np.random.uniform(0,1,(n,dim)) * (upperBound - lowerBound) + lowerBound
+        ns = ns.astype(int)
 
         light = np.ones(n)
         light.fill(float("inf"))
@@ -38,7 +38,7 @@ class FireflyAlgorythm(object):
         for k in range(0,maxGeneration):
 
             for i in range(0,n):
-                #LIZONCZYK TUTAJ WRZUCIC zn[i] = objectiveFunction(ns) gdzie ns jest wektorem
+                zn[i] = self.calcValue(ns[i])
                 light[i] = zn[i]
 
 
@@ -65,6 +65,8 @@ class FireflyAlgorythm(object):
                         beta=(beta0-betaMin)*math.exp(-gamma*r**2)+betaMin
                         tmpf=alpha*(np.random.rand(dim)-0.5)*scale
                         ns[i,:]=ns[i,:]*(1-beta)+nso[j,:]*beta+tmpf
+                        #sometimes it happes to be 0. Better save then sorry
+                        ns[i][ns[i] == 0] = 1
 
 
             iterationNumber = k
@@ -78,11 +80,25 @@ class FireflyAlgorythm(object):
             print nbest
             
 
-    def calcValue(m):
+    def calcValue(self,m):
         """
-        Wymyslec i policzyc funkcje celu na podstawie M i srednich czasow oczekiwania
         """
-        pass
+        avrTimes = self.bcmpIf(m.tolist())
+        timeSum = 0
+        for i in avrTimes:
+            for j in i:
+                timeSum += j
+
+        if timeSum < 0:
+            timeSum = 0
+
+        functionValue = 0
+
+        for i in m:
+            functionValue += i*0.01
+        functionValue += timeSum * 1000
+
+        return functionValue
 
     def bcmpIf(self, m):
         params = self.bcmpParams()
@@ -125,7 +141,6 @@ class FireflyAlgorythm(object):
         mi = np.matrix([[0.01, 0.04],
                         [0.02, 0.05],
                         [0.03, 0.06]])
-
         # single class transition probability matrices
         # matrix[node1,node2] denotes transition probability
         # from node1 to node2 for given class
@@ -141,18 +156,18 @@ class FireflyAlgorythm(object):
 
         # generate network parameters
         # node types
-        types = [1, 1, 3]
+        types = [1, 1, 1]
         # servers amount in respect to node type
         #m = [3, 1, 1]
         # amount of request by class
-        K = [3, 3]
+        K = [200,100]
         epsilon = 0.0001
         return R, N, K, mi, classes, types, epsilon
 
 if __name__ == "__main__":
-    #m = [2,1]
+    m = [6,4,4]
     solution = FireflyAlgorythm()
 
-    #solution.FFA(1, 1, 2, 2, 2, 2)
-    #solution.bcmpIf(m)
+    solution.FFA(2, 10, 3, 15, 10)
+    #print solution.bcmpIf(m)
     pass
