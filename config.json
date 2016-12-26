@@ -1,0 +1,21 @@
+{
+  "ffa": {
+    "lowerBound": 2,
+    "upperBound": 10,
+    "dim": 3,
+    "n": 15,
+    "maxGeneration": 10
+  },
+  "bcmp": {
+    "R": 2,
+    "N": 3,
+    "k": [200, 100],
+    "mi": {"__ndarray__": [[0.01, 0.04], [0.02, 0.05], [0.03, 0.06]], "dtype": "float64", "shape": [3, 2], "Corder": true},
+    "classes": [
+      {"__ndarray__": [[0.0, 0.7, 0.3], [0.6, 0.0, 0.4], [0.5, 0.5, 0.0]], "dtype": "float64", "shape": [3, 3], "Corder": true},
+      {"__ndarray__": [[0.0, 0.4, 0.6], [0.7, 0.0, 0.3], [0.4, 0.6, 0.0]], "dtype": "float64", "shape": [3, 3], "Corder": true}
+    ],
+    "types": [1, 1, 1],
+    "epsilon": 0.0001
+  }
+}

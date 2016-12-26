@@ -1,13 +1,12 @@
-import numpy as np
-import random
-import math
-from  bcmp_closed import *
+from bcmp_closed import *
+import json_tricks.np as jsont
 
 
-
-class FireflyAlgorythm(object):
-    def __init__(object):
-        pass
+class FireflyAlgorithm(object):
+    def __init__(self):
+        self.config = jsont.load('config.json')
+        self.ffa_config = self.config.get('ffa')
+        self.bcmp_config = self.config.get('bcmp')
 
     def FFA(self, lowerBound, upperBound, dim, n, maxGeneration):
         """
@@ -78,12 +77,11 @@ class FireflyAlgorythm(object):
             print fbest
             print "for vector:"
             print nbest
-            
 
     def calcValue(self,m):
         """
         """
-        avrTimes = self.bcmpIf(m.tolist())
+        avrTimes = self.bcmp_interface(m.tolist())
         timeSum = 0
         for i in avrTimes:
             for j in i:
@@ -100,28 +98,22 @@ class FireflyAlgorythm(object):
 
         return functionValue
 
-    def bcmpIf(self, m):
-        params = self.bcmpParams()
-        nrOfClassOne = sum(i == 1 for i in params[5])
-        if (nrOfClassOne != len(m)):
+    def bcmp_interface(self, m):
+        types = self.bcmp_config.get('types')
+        nr_of_class_one = sum(i == 1 for i in types)
+        if nr_of_class_one != len(m):
             raise ValueError("Amount of ms must be equal to nodes with type = 1")
 
-        indices = [i for i,j in enumerate(params[5]) if j == 1]
-        finalM = [0] * (len(params[5]))
-        for i in range(0,len(params[5])):
-            if (params[5][i] > 1):
-                finalM[i] = 1
-            else:
-                finalM[i] = m.pop(0)
+        final_m = [1 if type > 1 else m.pop(0) for type in types]
 
         solver = BcmpNetworkClosed(
-            R=params[0],
-            N=params[1],
-            k=params[2],
-            mi_matrix=params[3],
-            p=params[4],
-            node_info=zip(params[5], finalM),
-            epsilon=params[6]
+            R=self.bcmp_config['R'],
+            N=self.bcmp_config['N'],
+            k=self.bcmp_config['k'],
+            mi_matrix=self.bcmp_config['mi'],
+            p=self.bcmp_config['classes'],
+            node_info=zip(self.bcmp_config['types'], final_m),
+            epsilon=self.bcmp_config['epsilon']
         )
         vals = solver.get_measures()
 
@@ -164,10 +156,10 @@ class FireflyAlgorythm(object):
         epsilon = 0.0001
         return R, N, K, mi, classes, types, epsilon
 
-if __name__ == "__main__":
-    m = [6,4,4]
-    solution = FireflyAlgorythm()
 
-    solution.FFA(2, 10, 3, 15, 10)
-    #print solution.bcmpIf(m)
-    pass
+if __name__ == "__main__":
+    m = [6, 4, 4]
+    solution = FireflyAlgorithm()
+
+    solution.FFA(**solution.ffa_config)
+    print solution.bcmp_interface(m)
