@@ -38,6 +38,7 @@ if '__main__' == __name__:
     visit_ratios = np.hstack(results)
 
     from pprint import pprint
+
     pprint(visit_ratios)
 
     # compute node utilisation matrix (ro)  matrix[node, class]

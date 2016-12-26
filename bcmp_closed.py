@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import math
+
 """
 Solving closed BCMP network parameters
 - pages 362, 463-464 Queueing Networks and Markov Chains, Bolch et al.
@@ -93,7 +94,7 @@ class BcmpNetworkClosed(object):
         """
         if any(map(lambda tup: tup[1] == 0, node_info)):
             raise ValueError('0 amount of servers is not allowed')
-        if any(map(lambda (type, m): type !=1 and m != 1, node_info)):
+        if any(map(lambda (type, m): type != 1 and m != 1, node_info)):
             raise ValueError('Only type 1 can have more than one server')
 
         self.call_chain_matrix = [[] for _ in range(self.R)]
@@ -113,19 +114,20 @@ class BcmpNetworkClosed(object):
         type_, m = node_info
 
         def type1():
-            nom = self.e[i,r] / self.mi_matrix[i,r]
+            nom = self.e[i, r] / self.mi_matrix[i, r]
             denom = (1 - ((self.k_sum - 1) / self.k_sum) * self.ro[i]).item()
             return nom / denom
 
         def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
-            mul1 = (self.e[i,r] / (m * self.mi_matrix[i,r])) / (1 - self.ro[i]*((self.k_sum-m-1)/(self.k_sum-m)))
+            mul1 = (self.e[i, r] / (m * self.mi_matrix[i, r])) / (
+                1 - self.ro[i] * ((self.k_sum - m - 1) / (self.k_sum - m)))
             return (sum1 + mul1 * self.calculate_pmi(i)).item()
 
         def type3():
             return self.e[i, r] / self.mi_matrix[i, r]
 
-        if m == 1 and type_ in frozenset([1,2,4]):
+        if m == 1 and type_ in frozenset([1, 2, 4]):
             return type1
         elif m != 1 and type_ == 1:
             return type2
@@ -151,7 +153,7 @@ class BcmpNetworkClosed(object):
                 new_lambda = self.k[r] / s
                 self._lambdas[r] = new_lambda
 
-            err = sum([(self._lambdas[r] - old_lambdas[r])**2 for r in range(self.R)])
+            err = sum([(self._lambdas[r] - old_lambdas[r]) ** 2 for r in range(self.R)])
             error = math.sqrt(err)
             self._recalculate_lambda_ir()
             self._calculate_ro()
@@ -163,7 +165,8 @@ class BcmpNetworkClosed(object):
             return (self.ro_matrix[i, r] / (1 - self.ro[i] * (self.k_sum - 1) / self.k_sum)).item()
         elif type_ == 1 and m > 1:
             ro_ir = self.ro_matrix[i, r]
-            return (m * ro_ir + self.calculate_pmi(i) * ro_ir / (1 - self.ro[i] * (self.k_sum - m - 1) / (self.k_sum - m))).item()
+            return (m * ro_ir + self.calculate_pmi(i) * ro_ir / (
+                1 - self.ro[i] * (self.k_sum - m - 1) / (self.k_sum - m))).item()
         elif type_ == 3:
             return self._lambdas[r] * self.e[i, r] / self.mi_matrix[i, r]
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
@@ -181,13 +184,16 @@ class BcmpNetworkClosed(object):
     def get_measures(self):
         self._iterate()
         mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
-        mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in range(self.N)]
-        mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in range(self.N)]
+        mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in
+                         range(self.N)]
+        mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in
+                         range(self.N)]
         return {
             'mean_k_matrix': mean_k_matrix,
             'mean_t_matrix': mean_t_matrix,
             'mean_w_matrix': mean_w_matrix
         }
+
 
 if __name__ == '__main__':
     # Classes amount
@@ -249,6 +255,7 @@ if __name__ == '__main__':
     )
 
     from pprint import pprint
+
     res1 = solver1.get_measures()
     res2 = solver2.get_measures()
 

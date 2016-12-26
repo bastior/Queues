@@ -1,10 +1,10 @@
 {
   "ffa": {
-    "lowerBound": 2,
-    "upperBound": 10,
+    "lower_bound": 2,
+    "upper_bound": 10,
     "dim": 3,
     "n": 15,
-    "maxGeneration": 10
+    "max_generation": 10
   },
   "bcmp": {
     "R": 2,
