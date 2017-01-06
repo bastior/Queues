@@ -54,7 +54,7 @@ class BcmpNetworkClosed(object):
         visit_ratios = []
         for cl in p:
             A = cl.T - np.diagflat([0] + [1] * (self.N - 1))
-            ret = np.linalg.solve(A, [1] + [0] * (self.N - 1))
+            ret, _, _, _ = np.linalg.lstsq(A, [1] + [0] * (self.N - 1))
             visit_ratios.append(ret)
         return np.vstack(visit_ratios).T
 
@@ -273,7 +273,7 @@ def main():
     from pprint import pprint
 
     res1 = solver1.get_measures()
-    res2 = solver2.get_measures()
+    # res2 = solver2.get_measures()
 
     W1 = np.matrix(res1['mean_w_matrix'])
     print W1
