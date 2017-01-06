@@ -41,6 +41,7 @@ class BcmpNetworkClosed(object):
         self.epsilon = epsilon
         # raw probabilites have to be converted
         self.e = self._calculate_visit_ratios(p)
+        # print(self.e)
         # Initate lambdas with zeros
         self._lambdas = [0.00001 for _ in range(self.R)]
         # determine function types and store closures for each
@@ -52,7 +53,10 @@ class BcmpNetworkClosed(object):
     def _calculate_visit_ratios(self, p):
         visit_ratios = []
         for cl in p:
+            # print
+            # print cl
             A = cl.T - np.diagflat([0] + [1] * (self.N - 1))
+            # print A
             ret = np.linalg.solve(A, [1] + [0] * (self.N - 1))
             visit_ratios.append(ret)
         return np.vstack(visit_ratios).T
@@ -198,7 +202,7 @@ def main():
     # from node1 to node2 for given class
     p1 = np.matrix([[0.0, 0.7, 0.3],
                     [0.6, 0.0, 0.4],
-                    [0.5, 0.5, 0.0]])
+                    [0.6, 0.3, 0.1]])
     p2 = np.matrix([[0.0, 0.4, 0.6],
                     [0.7, 0.0, 0.3],
                     [0.4, 0.6, 0.0]])
