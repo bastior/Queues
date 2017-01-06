@@ -41,6 +41,7 @@ class BcmpNetworkClosed(object):
         self.epsilon = epsilon
         # raw probabilites have to be converted
         self.e = self._calculate_visit_ratios(p)
+        print self.e
         # Initate lambdas with zeros
         self._lambdas = [0.00001 for _ in range(self.R)]
         # determine function types and store closures for each
@@ -133,7 +134,7 @@ class BcmpNetworkClosed(object):
 
     def _iterate(self):
         error = self.epsilon + 1
-        while error > self.epsilon and not self._validate_lambdas():
+        while error > self.epsilon:# and not self._validate_lambdas():
             old_lambdas = list(self._lambdas)
             for r in range(self.R):
                 vals = map(lambda x: x(), self.call_chain_matrix[r])
@@ -184,41 +185,67 @@ class BcmpNetworkClosed(object):
 
 def main():
     # Classes amount
-    R = 2
+    R = 3
     # Nodes amount
-    N = 3
+    N = 8
 
     # service times
     # mi = np.matrix([[8., 24.],
     #                 [12., 32.],
     #                 [16., 36.]])
-    mi = np.matrix([[0.01, 0.04],
-                    [0.02, 0.05],
-                    [0.03, 0.06]])
+    mi = np.matrix([[67, 67, 67],
+                    [8,   8,  8],
+                    [60, 60, 60],
+                    [8.33, 8.33, 8.33],
+                    [12, 12, 12],
+                    [0.218, 0.218, 0.218],
+                    [ 1,  1,  1],
+                    [0.92, 0.137, 0.053]])
+
 
     # single class transition probability matrices
     # matrix[node1,node2] denotes transition probability
     # from node1 to node2 for given class
-    p1 = np.matrix([[0.0, 0.7, 0.3],
-                    [0.6, 0.0, 0.4],
-                    [0.6, 0.3, 0.1]])
-    p2 = np.matrix([[0.0, 0.4, 0.6],
-                    [0.7, 0.0, 0.3],
-                    [0.4, 0.6, 0.0]])
+    p1 = np.matrix([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+
+    p2 = np.matrix([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+
+    p3 = np.matrix([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
     # TODO check whether matrix dimensions are NxR
 
     # As there's no class transitions we can safely use list of
     # single class transition probabilities
-    classes = [p1, p2]
+    classes = [p1, p2, p3]
 
     # generate network parameters
     # node types
-    types = [1, 1, 1]
+    types = [1, 3, 1, 1, 1, 1, 1, 3]
     # servers amount in respect to node type
-    m = [2, 1, 1]
+    m = [1, 1, 1, 4, 2, 66, 30, 1]
     # amount of request by class
-    K1 = [1, 2]
-    K2 = [100000000, 200000000]
+    K1 = [250, 144, 20]
+    #K2 = [100000000, 200000000]
 
     # initiate solver
     solver1 = BcmpNetworkClosed(
@@ -231,6 +258,7 @@ def main():
         epsilon=0.0001
     )
 
+    '''
     solver2 = BcmpNetworkClosed(
         R=R,
         N=N,
@@ -240,6 +268,7 @@ def main():
         node_info=zip(types, m),
         epsilon=0.0001
     )
+    '''
 
     from pprint import pprint
 
@@ -247,8 +276,9 @@ def main():
     res2 = solver2.get_measures()
 
     W1 = np.matrix(res1['mean_w_matrix'])
-    W2 = np.matrix(res2['mean_w_matrix'])
-    pprint(W2 - W1)
+    print W1
+    #W2 = np.matrix(res2['mean_w_matrix'])
+    #pprint(W2 - W1)
     # pprint(res)
 
 
