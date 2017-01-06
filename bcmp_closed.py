@@ -15,16 +15,6 @@ Tested only for python 2.7
 """
 
 
-def get_ro_components(lambdas, visit_ratios, m, mi):
-    ro_matrix = [[(lambdas[r] * visit_ratios[i, r]) / (m[i] * mi[i, r])
-                  for r in range(self.R)] for i in range(self.N)]
-    ro_matrix = np.matrix(ro_matrix)
-    ro_list = ro_matrix.sum(1)
-    # print(ro_matrix)
-    # print(ro_list)
-    return ro_matrix, ro_list
-
-
 class BcmpNetworkClosed(object):
     def __init__(self, R, N, k, mi_matrix, p, node_info, epsilon):
         """
@@ -59,12 +49,11 @@ class BcmpNetworkClosed(object):
         self._recalculate_lambda_ir()
         self._calculate_ro()
 
-    @staticmethod
-    def _calculate_visit_ratios(p):
+    def _calculate_visit_ratios(self, p):
         visit_ratios = []
         for cl in p:
-            A = cl.T - np.diagflat([0, 1, 1])
-            ret = np.linalg.solve(A, [1, 0, 0])
+            A = cl.T - np.diagflat([0] + [1] * (self.N - 1))
+            ret = np.linalg.solve(A, [1] + [0] * (self.N - 1))
             visit_ratios.append(ret)
         return np.vstack(visit_ratios).T
 
@@ -119,7 +108,7 @@ class BcmpNetworkClosed(object):
 
         def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
-            mul1 = (self.e[i,r] / (m * self.mi_matrix[i,r])) / (1 - self.ro[i]*((self.k_sum-m-1)/(self.k_sum-m)))
+            mul1 = (self.e[i, r] / (m * self.mi_matrix[i, r])) / (1 - self.ro[i]*((self.k_sum-m-1)/(self.k_sum-m)))
             return (sum1 + mul1 * self.calculate_pmi(i)).item()
 
         def type3():
@@ -189,7 +178,8 @@ class BcmpNetworkClosed(object):
             'mean_w_matrix': mean_w_matrix
         }
 
-if __name__ == '__main__':
+
+def main():
     # Classes amount
     R = 2
     # Nodes amount
@@ -256,3 +246,6 @@ if __name__ == '__main__':
     W2 = np.matrix(res2['mean_w_matrix'])
     pprint(W2 - W1)
     # pprint(res)
+
+if __name__ == '__main__':
+    main()
