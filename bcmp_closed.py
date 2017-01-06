@@ -73,7 +73,7 @@ class BcmpNetworkClosed(object):
         ret, _, _, _ = np.linalg.lstsq(A, b)
         # visit_ratios.append(ret)
         visit_ratios = ret.reshape(self.R, self.N).T
-        # print ret
+        print visit_ratios
         return visit_ratios
         # return np.vstack(visit_ratios).T
         '''
