@@ -53,11 +53,11 @@ class BcmpNetworkClosed(object):
     def _calculate_visit_ratios(self, p):
         visit_ratios = []
         tempMatrix = np.zeros((8,8))
-        finishedMatrix = np.zeros((len(p[0]) * len(p) , 0))
+        # finishedMatrix = np.zeros((len(p[0]) * len(p) , 0))
         rowList = []
-        for i in range(0,len(p)):
+        for i in range(0, len(p)):
             matList = []
-            for j in range(0,len(p)):
+            for j in range(0, len(p)):
                 if i == j:
                     matList.append(p[i])
                 else:
@@ -67,11 +67,15 @@ class BcmpNetworkClosed(object):
         finishedMatrix = np.column_stack(rowList)
 
         #for cl in finishedMatrix:
-        A = finishedMatrix.T - np.diagflat([0] + [1] * (self.N * len(p) - 1))
-        ret, _, _, _ = np.linalg.lstsq(A, [1] + [0] * (self.N * len(p) - 1))
-        visit_ratios.append(ret)
-        print ret
-        return np.vstack(visit_ratios).T
+        b = ([1] + [0] * (self.N - 1)) * self.R
+        a_minus = ([0] + [1] * (self.N - 1)) * self.R
+        A = finishedMatrix.T - np.diagflat(a_minus)
+        ret, _, _, _ = np.linalg.lstsq(A, b)
+        # visit_ratios.append(ret)
+        visit_ratios = ret.reshape(self.R, self.N).T
+        # print ret
+        return visit_ratios
+        # return np.vstack(visit_ratios).T
         '''
         for cl in finishedMatrix:
             A = cl.T - np.diagflat([0] + [1] * (self.N * len(p) - 1))
