@@ -1,5 +1,4 @@
 import numpy as np
-import random
 import math
 
 """
@@ -14,6 +13,7 @@ Solving closed BCMP network parameters
 
 Tested only for python 2.7
 """
+
 
 class BcmpNetworkClosed(object):
     def __init__(self, R, N, k, mi_matrix, p, node_info, epsilon):
@@ -32,18 +32,25 @@ class BcmpNetworkClosed(object):
             raise ValueError("Amount of request types greater than amount of classes (%s, %s)" % (len(k), R))
         self.k = k
         self.k_sum = sum(k)
+        if mi_matrix.shape != (self.N, self.R):
+            raise ValueError("mi matrix should be shaped (%s, %s)" % (self.N, self.R))
         self.mi_matrix = mi_matrix
         # store servers amount per node (needed for ro recalculations)
         # im too lazy to clean that up
-        self.m = list(map(lambda x: x[1], node_info))
+        self.m = np.array(map(lambda x: x[1], node_info))
+        if len(self.m) != self.N:
+            raise ValueError("Incorrect length of server amounts list (%s != %s)" % (len(self.m), self.N))
         # this should be split, laziness emerges
         self.types = list(map(lambda x: x[0], node_info))
+        if len(self.types) != self.N:
+            raise ValueError("Incorrect length of node types list (%s != %s)" % (len(self.types), self.N))
         self.epsilon = epsilon
         # raw probabilites have to be converted
         self.e = self._calculate_visit_ratios(p)
-        #print self.e
+        if self.e.shape != (self.N, self.R):
+            raise ValueError("e matrix calculation failed: dimension mismatch (%s, %s)" % self.e.shape)
         # Initate lambdas with zeros
-        self._lambdas = [0.00001 for _ in range(self.R)]
+        self._lambdas = np.array([0.00001 for _ in range(self.R)])
         # determine function types and store closures for each
         self._get_call_chains(node_info)
         # calculate ro values pre first iteration
@@ -52,9 +59,9 @@ class BcmpNetworkClosed(object):
 
     def _calculate_visit_ratios(self, p):
         visit_ratios = []
-        tempMatrix = np.zeros((8,8))
+        tempMatrix = np.zeros((self.N, self.N))
         # finishedMatrix = np.zeros((len(p[0]) * len(p) , 0))
-        rowList = []
+        row_list = []
         for i in range(0, len(p)):
             matList = []
             for j in range(0, len(p)):
@@ -63,31 +70,20 @@ class BcmpNetworkClosed(object):
                 else:
                     matList.append(tempMatrix)
             row = np.concatenate(matList)
-            rowList.append(row)
-        finishedMatrix = np.column_stack(rowList)
+            row_list.append(row)
+        finishedMatrix = np.column_stack(row_list)
 
-        #for cl in finishedMatrix:
         b = ([1] + [0] * (self.N - 1)) * self.R
         a_minus = ([0] + [1] * (self.N - 1)) * self.R
+
         A = finishedMatrix.T - np.diagflat(a_minus)
         ret, _, _, _ = np.linalg.lstsq(A, b)
-        # visit_ratios.append(ret)
+
         visit_ratios = ret.reshape(self.R, self.N).T
-        print 'e'
-        print visit_ratios
         return visit_ratios
-        # return np.vstack(visit_ratios).T
-        '''
-        for cl in finishedMatrix:
-            A = cl.T - np.diagflat([0] + [1] * (self.N * len(p) - 1))
-            ret, _, _, _ = np.linalg.lstsq(A, [1] + [0] * (self.N - 1))
-            visit_ratios.append(ret)
-        return np.vstack(visit_ratios).T
-        '''
 
     def _recalculate_lambda_ir(self):
-        lambda_matrix = [[(self._lambdas[r] * self.e[i, r]) for r in range(self.R)] for i in range(self.N)]
-        self.lambda_matrix = np.matrix(lambda_matrix)
+        self.lambda_matrix = self._lambdas * self.e
 
     def _calculate_ro(self):
         """
@@ -95,9 +91,7 @@ class BcmpNetworkClosed(object):
             lambda_ir = e_ir * lambda_r
         :return:
         """
-        ro_matrix = [[self.lambda_matrix[i, r] / (self.m[i] * self.mi_matrix[i, r])
-                      for r in range(self.R)] for i in range(self.N)]
-        self.ro_matrix = np.matrix(ro_matrix)
+        self.ro_matrix = self.lambda_matrix / (self.mi_matrix * self.m.reshape(self.N, 1))
         self.ro = self.ro_matrix.sum(1)
 
     def _get_call_chains(self, node_info):
@@ -133,11 +127,11 @@ class BcmpNetworkClosed(object):
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
             mul1 = (self.e[i, r] / (m * self.mi_matrix[i, r])) / (
                 1 - self.ro[i] * ((self.k_sum - m - 1) / (self.k_sum - m)))
-            return (sum1 + mul1 * self.calculate_pmi(i)).item()
+            return (sum1 + mul1 * self.calculate_pmi(i))
 
         def type2():
             nom = self.e[i, r] / self.mi_matrix[i, r]
-            denom = (1 - ((self.k_sum - 1) / self.k_sum) * self.ro[i]).item()
+            denom = (1 - ((self.k_sum - 1) / self.k_sum) * self.ro[i])
             return nom / denom
 
         def type3():
@@ -161,15 +155,15 @@ class BcmpNetworkClosed(object):
 
     def _iterate(self):
         error = self.epsilon + 1
-        while error > self.epsilon:# and not self._validate_lambdas():
-            old_lambdas = list(self._lambdas)
+        while error > self.epsilon:
+            old_lambdas = np.copy(self._lambdas)
             for r in range(self.R):
-                vals = map(lambda x: x(), self.call_chain_matrix[r])
+                vals = [fun() for fun in self.call_chain_matrix[r]]
                 s = sum(vals)
                 new_lambda = self.k[r] / s
                 self._lambdas[r] = new_lambda
 
-            err = sum([(self._lambdas[r] - old_lambdas[r]) ** 2 for r in range(self.R)])
+            err = ((self._lambdas - old_lambdas) ** 2).sum()
             error = math.sqrt(err)
             self._recalculate_lambda_ir()
             self._calculate_ro()
@@ -177,13 +171,14 @@ class BcmpNetworkClosed(object):
     def get_kri(self, i, r):
         m = self.m[i]
         type_ = self.types[i]
-        if type_ in frozenset([1, 2, 4]) and m == 1:
-            return (self.ro_matrix[i, r] / (1 - self.ro[i] * (self.k_sum - 1) / self.k_sum)).item()
-        elif type_ == 1 and m > 1:
+        if type_ in frozenset([2, 4]) and m == 1:
+            return self.ro_matrix[i, r] / (1 - self.ro[i] * (self.k_sum - 1) / self.k_sum)
+        elif type_ == 1 and m >= 1:
             ro_ir = self.ro_matrix[i, r]
-            return (m * ro_ir + self.calculate_pmi(i) * ro_ir / (
-                1 - self.ro[i] * (self.k_sum - m - 1) / (self.k_sum - m))).item()
-        elif type_ == 3:
+            # TODO w przykladzie jest obecny wzor, w materialach do sum ten ponizej
+            result = m * ro_ir + (ro_ir / (1 - self.ro[i])) * self.calculate_pmi(i)
+            return result
+        elif type_ == 3 and m == 1:
             return self._lambdas[r] * self.e[i, r] / self.mi_matrix[i, r]
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
 
@@ -199,23 +194,14 @@ class BcmpNetworkClosed(object):
 
     def get_measures(self):
         self._iterate()
-        print 'lambdas'
-        print self._lambdas
         mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
         mean_t_matrix = [[0] * self.R] * self.N
         mean_w_matrix = [[0] * self.R] * self.N
         for r in range(self.R):
             for i in range(self.N):
-                if self.e[i, r] != 0 and self._lambdas[r] != 0:
-                    mean_t_matrix[i][r] = mean_k_matrix[i][r] / self.lambda_matrix[i,r]
+                if self.lambda_matrix[i, r] != 0:
+                    mean_t_matrix[i][r] = mean_k_matrix[i][r] / self.lambda_matrix[i, r]
                     mean_w_matrix[i][r] = mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r])
-
-
-
-        # mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in
-        #                  range(self.N)]
-        mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in
-                         range(self.N)]
 
         return {
             'mean_k_matrix': mean_k_matrix,
@@ -234,20 +220,20 @@ def main():
     # mi = np.matrix([[8., 24.],
     #                 [12., 32.],
     #                 [16., 36.]])
-    mi = np.matrix([[67, 67, 67],
-                    [8,   8,  8],
-                    [60, 60, 60],
+    mi = np.array([[67., 67., 67.],
+                    [8.,   8.,  8.],
+                    [60., 60., 60.],
                     [8.33, 8.33, 8.33],
-                    [12, 12, 12],
+                    [12., 12., 12.],
                     [0.218, 0.218, 0.218],
-                    [ 1,  1,  1],
+                    [1.,  1.,  1.],
                     [0.92, 0.137, 0.053]])
 
 
     # single class transition probability matrices
     # matrix[node1,node2] denotes transition probability
     # from node1 to node2 for given class
-    p1 = np.matrix([[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    p1 = np.array([[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -256,7 +242,7 @@ def main():
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                     [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
-    p2 = np.matrix([[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    p2 = np.array([[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
@@ -265,7 +251,7 @@ def main():
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
                     [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
-    p3 = np.matrix([[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    p3 = np.array([[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
@@ -318,8 +304,11 @@ def main():
 
     W1 = np.matrix(res1['mean_w_matrix'])
     from pprint import pprint
-    pprint(solver1.call_chain_matrix)
+    # pprint(solver1.call_chain_matrix)
+    np.set_printoptions(precision=6)
     print solver1.lambda_matrix
+    print 'ro'
+    print solver1.ro_matrix
     print 'mean_k'
     print np.matrix(res1['mean_k_matrix'])
     print 'mean_t'
