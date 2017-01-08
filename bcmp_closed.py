@@ -73,6 +73,7 @@ class BcmpNetworkClosed(object):
         ret, _, _, _ = np.linalg.lstsq(A, b)
         # visit_ratios.append(ret)
         visit_ratios = ret.reshape(self.R, self.N).T
+        print 'e'
         print visit_ratios
         return visit_ratios
         # return np.vstack(visit_ratios).T
@@ -109,7 +110,7 @@ class BcmpNetworkClosed(object):
         """
         if any(map(lambda tup: tup[1] == 0, node_info)):
             raise ValueError('0 amount of servers is not allowed')
-        if any(map(lambda (type, m): type != 1 and m != 1, node_info)):
+        if any(map(lambda (type_, m): type_ != 1 and m != 1, node_info)):
             raise ValueError('Only type 1 can have more than one server')
 
         self.call_chain_matrix = [[] for _ in range(self.R)]
@@ -129,25 +130,25 @@ class BcmpNetworkClosed(object):
         type_, m = node_info
 
         def type1():
-            nom = self.e[i, r] / self.mi_matrix[i, r]
-            denom = (1 - ((self.k_sum - 1) / self.k_sum) * self.ro[i]).item()
-            return nom / denom
-
-        def type2():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
             mul1 = (self.e[i, r] / (m * self.mi_matrix[i, r])) / (
                 1 - self.ro[i] * ((self.k_sum - m - 1) / (self.k_sum - m)))
             return (sum1 + mul1 * self.calculate_pmi(i)).item()
 
+        def type2():
+            nom = self.e[i, r] / self.mi_matrix[i, r]
+            denom = (1 - ((self.k_sum - 1) / self.k_sum) * self.ro[i]).item()
+            return nom / denom
+
         def type3():
             return self.e[i, r] / self.mi_matrix[i, r]
 
-        if m == 1 and type_ in frozenset([1, 2, 4]):
+        if type_ == 1:
             return type1
-        elif m != 1 and type_ == 1:
-            return type2
-        elif type_ == 3:
+        elif m == 1 and type_ == 3:
             return type3
+        elif m == 1 and type_ in frozenset([2, 4]):
+            return type2
 
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % node_info)
 
@@ -198,16 +199,30 @@ class BcmpNetworkClosed(object):
 
     def get_measures(self):
         self._iterate()
+        print 'lambdas'
+        print self._lambdas
         mean_k_matrix = [[self.get_kri(i, r) for r in range(self.R)] for i in range(self.N)]
-        mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in
-                         range(self.N)]
+        mean_t_matrix = [[0] * self.R] * self.N
+        mean_w_matrix = [[0] * self.R] * self.N
+        for r in range(self.R):
+            for i in range(self.N):
+                if self.e[i, r] != 0 and self._lambdas[r] != 0:
+                    mean_t_matrix[i][r] = mean_k_matrix[i][r] / self.lambda_matrix[i,r]
+                    mean_w_matrix[i][r] = mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r])
+
+
+
+        # mean_t_matrix = [[mean_k_matrix[i][r] / (self.e[i, r] * self._lambdas[r]) for r in range(self.R)] for i in
+        #                  range(self.N)]
         mean_w_matrix = [[mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r]) for r in range(self.R)] for i in
                          range(self.N)]
+
         return {
             'mean_k_matrix': mean_k_matrix,
             'mean_t_matrix': mean_t_matrix,
             'mean_w_matrix': mean_w_matrix
         }
+
 
 def main():
     # Classes amount
@@ -302,6 +317,14 @@ def main():
     # res2 = solver2.get_measures()
 
     W1 = np.matrix(res1['mean_w_matrix'])
+    from pprint import pprint
+    pprint(solver1.call_chain_matrix)
+    print solver1.lambda_matrix
+    print 'mean_k'
+    print np.matrix(res1['mean_k_matrix'])
+    print 'mean_t'
+    print np.matrix(res1['mean_t_matrix'])
+    print 'mean_w'
     print W1
     #W2 = np.matrix(res2['mean_w_matrix'])
     #pprint(W2 - W1)
