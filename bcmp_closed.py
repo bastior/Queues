@@ -175,11 +175,10 @@ class BcmpNetworkClosed(object):
             return self.ro_matrix[i, r] / (1 - self.ro[i] * (self.k_sum - 1) / self.k_sum)
         elif type_ == 1 and m >= 1:
             ro_ir = self.ro_matrix[i, r]
-            # TODO w przykladzie jest obecny wzor, w materialach do sum ten ponizej
             result = m * ro_ir + (ro_ir / (1 - self.ro[i])) * self.calculate_pmi(i)
             return result
         elif type_ == 3 and m == 1:
-            return self._lambdas[r] * self.e[i, r] / self.mi_matrix[i, r]
+            return self.lambda_matrix[i, r] / self.mi_matrix[i, r]
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (m, type_))
 
     def _validate_lambdas(self):
@@ -272,7 +271,6 @@ def main():
     m = [1, 1, 1, 4, 2, 66, 30, 1]
     # amount of request by class
     K1 = [250, 144, 20]
-    #K2 = [100000000, 200000000]
 
     # initiate solver
     solver1 = BcmpNetworkClosed(
@@ -285,27 +283,10 @@ def main():
         epsilon=0.0001
     )
 
-    '''
-    solver2 = BcmpNetworkClosed(
-        R=R,
-        N=N,
-        k=K2,
-        mi_matrix=mi,
-        p=classes,
-        node_info=zip(types, m),
-        epsilon=0.0001
-    )
-    '''
-
-    from pprint import pprint
-
     res1 = solver1.get_measures()
-    # res2 = solver2.get_measures()
-
     W1 = np.matrix(res1['mean_w_matrix'])
-    from pprint import pprint
+    # from pprint import pprint
     # pprint(solver1.call_chain_matrix)
-    np.set_printoptions(precision=6)
     print solver1.lambda_matrix
     print 'ro'
     print solver1.ro_matrix
@@ -315,9 +296,6 @@ def main():
     print np.matrix(res1['mean_t_matrix'])
     print 'mean_w'
     print W1
-    #W2 = np.matrix(res2['mean_w_matrix'])
-    #pprint(W2 - W1)
-    # pprint(res)
 
 
 if __name__ == '__main__':
