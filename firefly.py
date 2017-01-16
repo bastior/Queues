@@ -66,7 +66,7 @@ class FireflyAlgorithm(object):
                         tmpf = alpha * (np.random.rand(dim) - 0.5) * scale
                         ns[i, :] = ns[i, :] * (1 - beta) + nso[j, :] * beta + tmpf
                         # sometimes it happens to be 0. Better safe then sorry
-                        ns[i][ns[i] == 0] = 1
+                        ns[i][ns[i] < 2] = 2
 
             iteration_number = k
             best_quality = fbest
