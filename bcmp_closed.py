@@ -93,6 +93,7 @@ class BcmpNetworkClosed(object):
         """
         self.ro_matrix = self.lambda_matrix / (self.mi_matrix * self.m.reshape(self.N, 1))
         self.ro = self.ro_matrix.sum(1)
+        # print self.ro
 
     def _get_call_chains(self, node_info):
         """
@@ -132,13 +133,13 @@ class BcmpNetworkClosed(object):
         def type2():
             nom = self.e[i, r] / self.mi_matrix[i, r]
             denom = (1. - ((self.k_sum - 1.) / self.k_sum) * self.ro[i])
-            print 'type2'
-            print '[%s, %s]' % (i+1, r+1)
-            print self.e[i, r]
-            print self.mi_matrix[i, r]
-            print self.ro[i]
-            print nom/denom
-            print
+            # print 'type2'
+            # print '[%s, %s]' % (i+1, r+1)
+            # print self.e[i, r]
+            # print self.mi_matrix[i, r]
+            # print self.ro[i]
+            # print nom/denom
+            # print
             return nom / denom
 
         def type3():
@@ -162,9 +163,11 @@ class BcmpNetworkClosed(object):
 
     def _iterate(self):
         error = self.epsilon + 1
+        i = 1
         while error > self.epsilon:
             old_lambdas = np.copy(self._lambdas)
-
+            # print i
+            i += 1
             s = 0
             for r in range(self.R):
                 vals = [fun() for fun in self.call_chain_matrix[r]]
@@ -216,6 +219,146 @@ class BcmpNetworkClosed(object):
             'mean_t_matrix': mean_t_matrix,
             'mean_w_matrix': mean_w_matrix
         }
+
+
+class BcmpNetworkClosedV2(object):
+    def __init__(self, R, N, k, mi_matrix, p, m, types, epsilon):
+        """
+        :param R: classes amount
+        :param N: nodes amount
+        :param k: list of request in system per class
+        :param mi_matrix: matrix[node,class]
+        :param p: list of matrices, probabilities for each class
+        :param node_info: list of tuples (type, servers amount)
+        :param epsilon: stop condition
+        """
+        self.R = R
+        self.N = N
+        if len(k) != R:
+            raise ValueError("Amount of request types greater than amount of classes (%s, %s)" % (len(k), R))
+        self.k = k
+        self.k_sum = sum(k)
+        if mi_matrix.shape != (self.N, self.R):
+            raise ValueError("mi matrix should be shaped (%s, %s)" % (self.N, self.R))
+        self.mi_matrix = mi_matrix
+        # store servers amount per node (needed for ro recalculations)
+        # im too lazy to clean that up
+        self.m = m
+        if len(self.m) != self.N:
+            raise ValueError("Incorrect length of server amounts list (%s != %s)" % (len(self.m), self.N))
+        # this should be split, laziness emerges
+        self.types = types
+        if len(self.types) != self.N:
+            raise ValueError("Incorrect length of node types list (%s != %s)" % (len(self.types), self.N))
+        self.epsilon = epsilon
+        # raw probabilites have to be converted
+        self.e = self._calculate_visit_ratios(p)
+        if self.e.shape != (self.N, self.R):
+            raise ValueError("e matrix calculation failed: dimension mismatch (%s, %s)" % self.e.shape)
+        # Initate lambdas with zeros
+        self.lambdas = np.array([0.00001 for _ in range(self.R)])
+
+    def _calculate_visit_ratios(self, p):
+        tempMatrix = np.zeros((self.N, self.N))
+        row_list = []
+        for i in range(0, len(p)):
+            matList = []
+            for j in range(0, len(p)):
+                if i == j:
+                    matList.append(p[i])
+                else:
+                    matList.append(tempMatrix)
+            row = np.concatenate(matList)
+            row_list.append(row)
+        finishedMatrix = np.column_stack(row_list)
+
+        b = ([1] + [0] * (self.N - 1)) * self.R
+        a_minus = ([0] + [1] * (self.N - 1)) * self.R
+
+        A = finishedMatrix.T - np.diagflat(a_minus)
+        ret, _, _, _ = np.linalg.lstsq(A, b)
+
+        visit_ratios = ret.reshape(self.R, self.N).T
+        return visit_ratios
+
+    def calculate_ro(self, i, r):
+        return self.lambdas[r] * self.e[i, r]
+
+    def calculate_roi(self, i):
+        return sum([self.calculate_ro(i, r) for r in range(self.R)])
+
+    def calculate_pmi(self, i, roi):
+        m = self.m[i]
+        if m == 0:
+            return 1
+        elif roi == 0:
+            return 0
+
+        mul1 = ((m * roi) ** m) / (math.factorial(m) * (1 - roi))
+        den1 = sum([((m * roi) ** k) / math.factorial(k) for k in range(m - 1)])
+        den2 = (((m * roi) ** m) / math.factorial(m)) * (1. / (1 - roi))
+
+        return mul1 / (den1 + den2)
+
+    def _type11(self, i, r, roi):
+        mi = self.mi_matrix[i, r]
+        if mi == 0:
+            return 0
+
+        nom = self.e[i, r] / mi
+        denom = (1. - ((self.k_sum - 1.) / self.k_sum) * roi)
+
+        return nom / denom
+
+    def _type1n(self, i, r, roi, m):
+        if self.mi_matrix[i, r] == 0:
+            return 0
+
+        sum1 = self.e[i, r] / self.mi_matrix[i, r]
+        mul1 = (self.e[i, r] / (m * self.mi_matrix[i, r])) / (
+            1. - (((self.k_sum - m - 1.) / (self.k_sum - m)) * roi))
+
+        return sum1 + mul1 * self.calculate_pmi(i, roi)
+
+    def _type31(self, i, r):
+        return self.e[i, r] / self.mi_matrix[i, r]
+
+    def _get_fix(self, i, r, roi):
+        type_ = self.types[i]
+        m = self.m[i]
+
+        if m == 1 and type_ in frozenset([1, 2, 4]):
+            return self._type11(i, r, roi)
+        elif type_ == 1 and m > 1:
+            return self._type1n(i, r, roi, m)
+        elif m == 1 and type_ == 3:
+            return self._type31(i, r)
+
+        raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (type_, m))
+
+    def calculate_single_iteration(self):
+        s = 0
+        for r in range(self.R):
+            for i in range(self.N):
+                roi = self.calculate_roi(i)
+                s += self._get_fix(i, r, roi)
+
+            self.lambdas[r] = (self.k[r] / s) if s != 0 else 0
+
+    def get_params_sum_method(self):
+        error = self.epsilon + 1
+        # i = 0
+        while error > self.epsilon:
+            # if i > 100:
+            #     break
+
+            old_lambdas = np.copy(self.lambdas)
+
+            self.calculate_single_iteration()
+
+            err = ((self.lambdas - old_lambdas) ** 2).sum()
+            error = math.sqrt(err)
+            # i += 1
 
 
 def main():
@@ -281,8 +424,22 @@ def main():
     # amount of request by class
     K1 = [250, 144, 20]
 
+    solver1 = BcmpNetworkClosedV2(
+        R=R,
+        N=N,
+        k=K1,
+        mi_matrix=mi,
+        p=classes,
+        m=m,
+        types=types,
+        epsilon=0.0001
+    )
+
+    solver1.get_params_sum_method()
+    print solver1.lambdas
+
     # initiate solver
-    solver1 = BcmpNetworkClosed(
+    solver2 = BcmpNetworkClosed(
         R=R,
         N=N,
         k=K1,
@@ -291,10 +448,14 @@ def main():
         node_info=zip(types, m),
         epsilon=0.0001
     )
+    res2 = solver2.get_measures()
+    print solver2._lambdas
 
-    res1 = solver1.get_measures()
-    W1 = np.matrix(res1['mean_w_matrix'])
-    print solver1.e
+
+    # res1 = solver1.get_measures()
+    # W1 = np.matrix(res1['mean_w_matrix'])
+    # print solver1.e
+    # print solver1._lambdas
     # from pprint import pprint
     # pprint(solver1.call_chain_matrix)
     # print solver1.lambda_matrix
