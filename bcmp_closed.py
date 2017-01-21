@@ -223,15 +223,6 @@ class BcmpNetworkClosed(object):
 
 class BcmpNetworkClosedV2(object):
     def __init__(self, R, N, k, mi_matrix, p, m, types, epsilon):
-        """
-        :param R: classes amount
-        :param N: nodes amount
-        :param k: list of request in system per class
-        :param mi_matrix: matrix[node,class]
-        :param p: list of matrices, probabilities for each class
-        :param node_info: list of tuples (type, servers amount)
-        :param epsilon: stop condition
-        """
         self.R = R
         self.N = N
         if len(k) != R:
@@ -242,11 +233,9 @@ class BcmpNetworkClosedV2(object):
             raise ValueError("mi matrix should be shaped (%s, %s)" % (self.N, self.R))
         self.mi_matrix = mi_matrix
         # store servers amount per node (needed for ro recalculations)
-        # im too lazy to clean that up
         self.m = m
         if len(self.m) != self.N:
             raise ValueError("Incorrect length of server amounts list (%s != %s)" % (len(self.m), self.N))
-        # this should be split, laziness emerges
         self.types = types
         if len(self.types) != self.N:
             raise ValueError("Incorrect length of node types list (%s != %s)" % (len(self.types), self.N))
@@ -256,7 +245,7 @@ class BcmpNetworkClosedV2(object):
         if self.e.shape != (self.N, self.R):
             raise ValueError("e matrix calculation failed: dimension mismatch (%s, %s)" % self.e.shape)
         # Initate lambdas with zeros
-        self.lambdas = np.array([0.00001 for _ in range(self.R)])
+        self.lambdas = np.array([epsilon for _ in range(self.R)])
 
     def _calculate_visit_ratios(self, p):
         tempMatrix = np.zeros((self.N, self.N))
@@ -282,7 +271,7 @@ class BcmpNetworkClosedV2(object):
         return visit_ratios
 
     def calculate_ro(self, i, r):
-        return self.lambdas[r] * self.e[i, r]
+        return self.lambdas[r] * self.e[i, r] / (self.m[i] * self.mi_matrix[i, r])
 
     def calculate_roi(self, i):
         return sum([self.calculate_ro(i, r) for r in range(self.R)])
@@ -307,6 +296,7 @@ class BcmpNetworkClosedV2(object):
 
         nom = self.e[i, r] / mi
         denom = (1. - ((self.k_sum - 1.) / self.k_sum) * roi)
+        print i+1, r+1, self.e[i, r], self.mi_matrix[i, r], roi, nom/denom
 
         return nom / denom
 
@@ -337,13 +327,14 @@ class BcmpNetworkClosedV2(object):
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % (type_, m))
 
     def calculate_single_iteration(self):
-        s = 0
+        s = 0.
         for r in range(self.R):
             for i in range(self.N):
                 roi = self.calculate_roi(i)
-                s += self._get_fix(i, r, roi)
+                fix = self._get_fix(i, r, roi)
+                s += fix
 
-            self.lambdas[r] = (self.k[r] / s) if s != 0 else 0
+            self.lambdas[r] = (float(self.k[r]) / s) if s != 0 else 0
 
     def get_params_sum_method(self):
         error = self.epsilon + 1
@@ -359,6 +350,21 @@ class BcmpNetworkClosedV2(object):
             err = ((self.lambdas - old_lambdas) ** 2).sum()
             error = math.sqrt(err)
             # i += 1
+
+    def get_ro_matrix(self):
+        ro_mt = np.zeros((8, 3))
+        for r in range(self.R):
+            for i in range(self.N):
+                ro_mt[i, r] = self.calculate_ro(i, r)
+
+        return ro_mt
+
+    def get_k_matrix(self):
+        ro_mt = np.zeros((8, 3))
+        for r in range(self.R):
+            for i in range(self.N):
+                ro_mt[i, r] = self.calculate_ro(i, r)
+
 
 
 def main():
@@ -436,7 +442,9 @@ def main():
     )
 
     solver1.get_params_sum_method()
-    print solver1.lambdas
+    # print solver1.lambdas
+    # print solver1.e
+    # print solver1.get_ro_matrix()
 
     # initiate solver
     solver2 = BcmpNetworkClosed(
