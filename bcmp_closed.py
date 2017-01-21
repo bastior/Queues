@@ -126,22 +126,29 @@ class BcmpNetworkClosed(object):
         def type1():
             sum1 = self.e[i, r] / self.mi_matrix[i, r]
             mul1 = (self.e[i, r] / (m * self.mi_matrix[i, r])) / (
-                1 - self.ro[i] * ((self.k_sum - m - 1) / (self.k_sum - m)))
+                1. - self.ro[i] * ((self.k_sum - m - 1.) / (self.k_sum - m)))
             return (sum1 + mul1 * self.calculate_pmi(i))
 
         def type2():
             nom = self.e[i, r] / self.mi_matrix[i, r]
-            denom = (1 - ((self.k_sum - 1) / self.k_sum) * self.ro[i])
+            denom = (1. - ((self.k_sum - 1.) / self.k_sum) * self.ro[i])
+            print 'type2'
+            print '[%s, %s]' % (i+1, r+1)
+            print self.e[i, r]
+            print self.mi_matrix[i, r]
+            print self.ro[i]
+            print nom/denom
+            print
             return nom / denom
 
         def type3():
             return self.e[i, r] / self.mi_matrix[i, r]
 
-        if type_ == 1:
+        if type_ == 1 and m > 1:
             return type1
         elif m == 1 and type_ == 3:
             return type3
-        elif m == 1 and type_ in frozenset([2, 4]):
+        elif m == 1 and type_ in frozenset([1, 2, 4]):
             return type2
 
         raise RuntimeError("Unsupported (type, amount) pair (%s, %s) " % node_info)
@@ -150,16 +157,18 @@ class BcmpNetworkClosed(object):
         m = self.m[i]
         mul1 = ((m * self.ro[i]) ** m) / (math.factorial(m) * (1 - self.ro[i]))
         den1 = sum([((m * self.ro[i]) ** k) / math.factorial(k) for k in range(m - 1)])
-        den2 = (((m * self.ro[i]) ** m) / math.factorial(m)) * (1 / (1 - self.ro[i]))
+        den2 = (((m * self.ro[i]) ** m) / math.factorial(m)) * (1. / (1 - self.ro[i]))
         return mul1 / (den1 + den2)
 
     def _iterate(self):
         error = self.epsilon + 1
         while error > self.epsilon:
             old_lambdas = np.copy(self._lambdas)
+
+            s = 0
             for r in range(self.R):
                 vals = [fun() for fun in self.call_chain_matrix[r]]
-                s = sum(vals)
+                s += sum(vals)
                 new_lambda = self.k[r] / s
                 self._lambdas[r] = new_lambda
 
@@ -200,7 +209,7 @@ class BcmpNetworkClosed(object):
             for i in range(self.N):
                 if self.lambda_matrix[i, r] != 0:
                     mean_t_matrix[i][r] = mean_k_matrix[i][r] / self.lambda_matrix[i, r]
-                    mean_w_matrix[i][r] = mean_t_matrix[i][r] - (1 / self.mi_matrix[i, r])
+                    mean_w_matrix[i][r] = mean_t_matrix[i][r] - (1. / self.mi_matrix[i, r])
 
         return {
             'mean_k_matrix': mean_k_matrix,
@@ -285,17 +294,18 @@ def main():
 
     res1 = solver1.get_measures()
     W1 = np.matrix(res1['mean_w_matrix'])
+    print solver1.e
     # from pprint import pprint
     # pprint(solver1.call_chain_matrix)
-    print solver1.lambda_matrix
-    print 'ro'
-    print solver1.ro_matrix
-    print 'mean_k'
-    print np.matrix(res1['mean_k_matrix'])
-    print 'mean_t'
-    print np.matrix(res1['mean_t_matrix'])
-    print 'mean_w'
-    print W1
+    # print solver1.lambda_matrix
+    # print 'ro'
+    # print solver1.ro_matrix
+    # print 'mean_k'
+    # print np.matrix(res1['mean_k_matrix'])
+    # print 'mean_t'
+    # print np.matrix(res1['mean_t_matrix'])
+    # print 'mean_w'
+    # print W1
 
 
 if __name__ == '__main__':
