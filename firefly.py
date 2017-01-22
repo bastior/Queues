@@ -112,7 +112,8 @@ class FireflyAlgorithm(object):
             k=self.bcmp_config['k'],
             mi_matrix=self.bcmp_config['mi'],
             p=self.bcmp_config['classes'],
-            node_info=zip(self.bcmp_config['types'], final_m),
+            types=self.bcmp_config['types'],
+            m=final_m,
             epsilon=self.bcmp_config['epsilon']
         )
         vals = solver.get_measures()
