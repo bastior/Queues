@@ -365,10 +365,43 @@ class BcmpNetworkClosedV2(object):
         return ro_mt
 
     def get_k_matrix(self):
-        ro_mt = np.zeros((8, 3))
+        k_mt = np.zeros((8, 3))
         for r in range(self.R):
             for i in range(self.N):
-                ro_mt[i, r] = self.calculate_ro(i, r)
+                if self.types[i] in [1,2,4] and self.m[i] == 1:
+                    k_mt[i, r] = self.calculate_ro(i, r) / (1 - ((self.k_sum - 1) / self.k_sum)*self.calculate_roi(i))
+                elif self.types[i] == 1 and self.m[i] > 1:
+                    roi = self.calculate_roi(i)
+                    roir = self.calculate_ro(i, r)
+                    sum2 = roir / (1 - ((self.k_sum - self.m[i] - 1) / (self.k_sum - self.m[i])) * roi)
+                    k_mt[i, r] = self.m[i] * roir + sum2 * self.calculate_pmi(i, roi)
+                elif self.types[i] == 3 and self.m[i] == 1:
+                    k_mt[i, r] = self.e[i, r] / self.mi_matrix[i, r]
+        return k_mt
+
+    def get_t_matrix(self):
+        t_mt = np.zeros((8, 3))
+        k_mt = self.get_k_matrix()
+        for r in range(self.R):
+            for i in range(self.N):
+                lambda_ir = self.lambdas[r] * self.e[i, r]
+                if self.e[i, r] == 0:
+                    t_mt[i, r] = 0
+                else:
+                    t_mt[i, r] = k_mt[i, r] / lambda_ir
+        return t_mt
+
+    def get_w_matrix(self):
+        w_mt = np.zeros((8, 3))
+        t_mt = self.get_t_matrix()
+        for r in range(self.R):
+            for i in range(self.N):
+                if self.types[i] == 3 or self.mi_matrix[i, r] == 0:
+                    w_mt[i, r] = 0
+                else:
+                    w = t_mt[i, r] - 1 / self.mi_matrix[i, r]
+                    w_mt[i, r] = w if w > 0 else 0
+        return w_mt
 
 
 def main():
@@ -447,26 +480,35 @@ def main():
     )
 
     solver1.get_params_sum_method()
+    print 'lambdar'
     print solver1.lambdas
-    # print solver1.e
-    # print solver1.get_ro_matrix()
+    print 'e'
+    print solver1.e
+    print 'ro'
+    print solver1.get_ro_matrix()
+    print 'k'
+    print solver1.get_k_matrix()
+    print 't'
+    print solver1.get_t_matrix()
+    print 'w'
+    print solver1.get_w_matrix()
 
     # initiate solver
-    solver2 = BcmpNetworkClosed(
-        R=R,
-        N=N,
-        k=K1,
-        mi_matrix=mi,
-        p=classes,
-        node_info=zip(types, m),
-        epsilon=0.0001
-    )
-    res2 = solver2.get_measures()
-    print solver2._lambdas
+    # solver2 = BcmpNetworkClosed(
+    #     R=R,
+    #     N=N,
+    #     k=K1,
+    #     mi_matrix=mi,
+    #     p=classes,
+    #     node_info=zip(types, m),
+    #     epsilon=0.0001
+    # )
+    # res2 = solver2.get_measures()
+    # print solver2._lambdas
 
 
     # res2 = solver1.get_measures()
-    W1 = np.matrix(res2['mean_w_matrix'])
+    # W1 = np.matrix(res2['mean_w_matrix'])
     # print solver1.e
     # print solver1._lambdas
     # from pprint import pprint
