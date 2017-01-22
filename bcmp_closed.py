@@ -157,7 +157,7 @@ class BcmpNetworkClosed(object):
     def calculate_pmi(self, i):
         m = self.m[i]
         mul1 = ((m * self.ro[i]) ** m) / (math.factorial(m) * (1 - self.ro[i]))
-        den1 = sum([((m * self.ro[i]) ** k) / math.factorial(k) for k in range(m - 1)])
+        den1 = sum([((m * self.ro[i]) ** k) / math.factorial(k) for k in range(m)])
         den2 = (((m * self.ro[i]) ** m) / math.factorial(m)) * (1. / (1 - self.ro[i]))
         return mul1 / (den1 + den2)
 
@@ -271,6 +271,11 @@ class BcmpNetworkClosedV2(object):
         return visit_ratios
 
     def calculate_ro(self, i, r):
+        mi = self.mi_matrix[i, r]
+
+        if mi == 0 or self.types[i] == 3:
+            return 0
+
         return self.lambdas[r] * self.e[i, r] / (self.m[i] * self.mi_matrix[i, r])
 
     def calculate_roi(self, i):
@@ -284,7 +289,7 @@ class BcmpNetworkClosedV2(object):
             return 0
 
         mul1 = ((m * roi) ** m) / (math.factorial(m) * (1 - roi))
-        den1 = sum([((m * roi) ** k) / math.factorial(k) for k in range(m - 1)])
+        den1 = sum([((m * roi) ** k) / math.factorial(k) for k in range(m)])
         den2 = (((m * roi) ** m) / math.factorial(m)) * (1. / (1 - roi))
 
         return mul1 / (den1 + den2)
@@ -296,7 +301,7 @@ class BcmpNetworkClosedV2(object):
 
         nom = self.e[i, r] / mi
         denom = (1. - ((self.k_sum - 1.) / self.k_sum) * roi)
-        print i+1, r+1, self.e[i, r], self.mi_matrix[i, r], roi, nom/denom
+        # print i+1, r+1, self.e[i, r], self.mi_matrix[i, r], roi, nom/denom
 
         return nom / denom
 
@@ -366,7 +371,6 @@ class BcmpNetworkClosedV2(object):
                 ro_mt[i, r] = self.calculate_ro(i, r)
 
 
-
 def main():
     # Classes amount
     R = 3
@@ -429,6 +433,7 @@ def main():
     m = [1, 1, 1, 4, 2, 66, 30, 1]
     # amount of request by class
     K1 = [250, 144, 20]
+    epsilon = 1e-05
 
     solver1 = BcmpNetworkClosedV2(
         R=R,
@@ -438,11 +443,11 @@ def main():
         p=classes,
         m=m,
         types=types,
-        epsilon=0.0001
+        epsilon=epsilon
     )
 
     solver1.get_params_sum_method()
-    # print solver1.lambdas
+    print solver1.lambdas
     # print solver1.e
     # print solver1.get_ro_matrix()
 
@@ -460,8 +465,8 @@ def main():
     print solver2._lambdas
 
 
-    # res1 = solver1.get_measures()
-    # W1 = np.matrix(res1['mean_w_matrix'])
+    # res2 = solver1.get_measures()
+    W1 = np.matrix(res2['mean_w_matrix'])
     # print solver1.e
     # print solver1._lambdas
     # from pprint import pprint
@@ -470,9 +475,9 @@ def main():
     # print 'ro'
     # print solver1.ro_matrix
     # print 'mean_k'
-    # print np.matrix(res1['mean_k_matrix'])
+    # print np.matrix(res2['mean_k_matrix'])
     # print 'mean_t'
-    # print np.matrix(res1['mean_t_matrix'])
+    # print np.matrix(res2['mean_t_matrix'])
     # print 'mean_w'
     # print W1
 
